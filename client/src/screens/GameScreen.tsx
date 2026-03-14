@@ -52,7 +52,8 @@ export function GameScreen({ user, ws, initialState, onGallery, onLeave }: GameS
     isMyTurn &&
     (settings?.mode === "story" ||
       turn.imageData !== undefined ||
-      (settings?.mode === "normal" && turn.turnIndex === 0));
+      (settings?.mode === "normal" && turn.turnIndex === 0) ||
+      (turn.turnIndex === 0 && turn.prompt === undefined && turn.imageData === undefined));
 
   useEffect(() => {
     if (gallery && gallery.length > 0) onGallery(gallery);
@@ -134,8 +135,27 @@ export function GameScreen({ user, ws, initialState, onGallery, onLeave }: GameS
           ))}
         </aside>
 
-        <main className="flex-1 flex flex-col md:flex-row gap-4 p-4 overflow-auto">
+        <main className="flex-1 flex flex-col md:flex-row gap-4 p-4 overflow-auto min-h-0">
           <div className="flex flex-col md:flex-row gap-4 flex-1 min-w-0">
+            {!turn && (
+              <div className="flex-1 flex items-center justify-center text-white/60">
+                <p>Ожидание начала хода...</p>
+              </div>
+            )}
+            {turn && !needsDrawing && !needsText && (
+              <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center p-6">
+                <p className="text-white/80 text-lg">
+                  Сейчас ходит{" "}
+                  <span className="text-neon-purple font-bold">
+                    {players.find((x) => x.id === turn.playerId)?.nickname ?? "игрок"}
+                  </span>
+                </p>
+                {turn.prompt && (
+                  <p className="text-white/60 max-w-md">Задание: {turn.prompt}</p>
+                )}
+                <p className="text-white/40 text-sm">Ждите или следите за таймером</p>
+              </div>
+            )}
             {(needsDrawing || (turn && turn.imageData)) && (
               <>
                 <DrawingToolbar
