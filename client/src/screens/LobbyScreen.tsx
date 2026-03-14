@@ -69,12 +69,12 @@ export function LobbyScreen({ user, roomCode, onBack, onGameStart }: LobbyScreen
 
     socket.onerror = () => setError("Ошибка подключения");
     socket.onclose = () => {
-      if (!socket.CLOSED) setError("Соединение закрыто");
+      setError("Соединение закрыто");
     };
 
-    return () => {
-      if (socket.readyState === WebSocket.OPEN) socket.close();
-    };
+    // Не закрывать сокет при размонтировании — при старте игры он передаётся в GameScreen.
+    // Закрывать только при явном "Выйти" (см. кнопку Выйти ниже).
+    return () => {};
   }, [roomCode, user.playerId, user.nickname, user.color]);
 
   const updateSettings = (next: Partial<RoomSettings>) => {
@@ -100,7 +100,13 @@ export function LobbyScreen({ user, roomCode, onBack, onGameStart }: LobbyScreen
             ТЕЛЕФОНЧИК
           </span>
         </div>
-        <button onClick={onBack} className="text-white/80 hover:text-white text-sm flex items-center gap-1">
+        <button
+          onClick={() => {
+            ws?.close();
+            onBack();
+          }}
+          className="text-white/80 hover:text-white text-sm flex items-center gap-1"
+        >
           <IconBack size={18} />
           Выйти
         </button>
