@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-start: #1f1633;
+  --bg-end: #2a1f44;
+  --neon-purple: #c026d3;
+  --neon-pink: #ff00aa;
+  --neon-green: #00ffaa;
+}
+
+body {
+  margin: 0;
+  font-family: "Fredoka", "Burbank Big Condensed", Impact, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* Noise overlay like Gartic 2026 */
+.bg-noise::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Press effect for buttons */
+.btn-press:active {
+  transform: scale(0.95);
+}
+
+/* Glow on hover */
+.btn-glow:hover {
+  box-shadow: 0 0 24px rgba(192, 38, 211, 0.6);
+}
