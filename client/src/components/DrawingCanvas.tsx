@@ -40,16 +40,45 @@ export function DrawingCanvas({
   const isDrawing = useRef(false);
   const lastLine = useRef<number[]>([]);
 
+  // Резервный экспорт: рисуем strokes на временном canvas (на случай если Konva ref не отдаёт toDataURL)
+  const getDataURLFromStrokes = useCallback(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return "";
+    ctx.fillStyle = "#1F1633";
+    ctx.fillRect(0, 0, width, height);
+    strokes.forEach((stroke) => {
+      if (stroke.points.length < 2) return;
+      ctx.strokeStyle = stroke.color;
+      ctx.lineWidth = stroke.width;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.beginPath();
+      ctx.moveTo(stroke.points[0], stroke.points[1]);
+      for (let i = 2; i < stroke.points.length; i += 2) {
+        ctx.lineTo(stroke.points[i], stroke.points[i + 1]);
+      }
+      ctx.stroke();
+    });
+    return canvas.toDataURL("image/png");
+  }, [strokes, width, height]);
+
   useEffect(() => {
     if (canvasRef) {
       canvasRef.current = {
-        getDataURL: () => stageRef.current?.toDataURL?.({ pixelRatio: 2 }) ?? "",
+        getDataURL: () => {
+          const fromStage = stageRef.current?.toDataURL?.({ pixelRatio: 2 });
+          if (fromStage && fromStage.length > 100) return fromStage;
+          return getDataURLFromStrokes();
+        },
       };
       return () => {
         canvasRef.current = null;
       };
     }
-  }, [canvasRef]);
+  }, [canvasRef, getDataURLFromStrokes]);
 
   const handleMouseDown = useCallback(
     (e: { target: { getStage: () => { getPointerPosition: () => { x: number; y: number } | null } | null } }) => {

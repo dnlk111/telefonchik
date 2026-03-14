@@ -18,7 +18,10 @@ interface GameScreenProps {
 }
 
 export function GameScreen({ user, ws, initialState, onGallery, onLeave }: GameScreenProps) {
-  const { players, settings, turn, send, isMyTurn, gallery, chain } = useRoomWs(ws, user.playerId);
+  const wsState = useRoomWs(ws, user.playerId);
+  const players = wsState.players.length > 0 ? wsState.players : (initialState?.players ?? []);
+  const settings = wsState.settings ?? initialState?.settings ?? null;
+  const { turn, send, isMyTurn, gallery, chain } = wsState;
   const [strokes, setStrokes] = useState<Stroke[]>([]);
   const prevChainLengthRef = useRef(0);
   const [color, setColor] = useState("#C026D3");
@@ -34,25 +37,19 @@ export function GameScreen({ user, ws, initialState, onGallery, onLeave }: GameS
     "#FFFFFF",
   ];
 
+  const drawOnlyModes = ["knockoff", "animation", "complement", "masterpiece", "exquisite", "coop", "sandwich", "background", "solo"];
   const needsDrawing =
     turn &&
     isMyTurn &&
     (turn.prompt !== undefined ||
-      settings?.mode === "knockoff" ||
-      settings?.mode === "animation" ||
-      settings?.mode === "complement" ||
-      settings?.mode === "masterpiece" ||
-      settings?.mode === "exquisite" ||
-      settings?.mode === "coop" ||
-      settings?.mode === "sandwich" ||
-      settings?.mode === "background" ||
-      settings?.mode === "solo");
+      (settings?.mode === "normal" && turn.turnIndex % 2 === 1) ||
+      (settings?.mode && drawOnlyModes.includes(settings.mode)));
   const needsText =
     turn &&
     isMyTurn &&
     (settings?.mode === "story" ||
       turn.imageData !== undefined ||
-      (settings?.mode === "normal" && turn.turnIndex === 0) ||
+      (settings?.mode === "normal" && turn.turnIndex % 2 === 0) ||
       (turn.turnIndex === 0 && turn.prompt === undefined && turn.imageData === undefined));
 
   useEffect(() => {
@@ -85,8 +82,36 @@ export function GameScreen({ user, ws, initialState, onGallery, onLeave }: GameS
   }, [send, user.playerId, textInput]);
 
   const square = settings?.squareCanvas ?? false;
-  const w = square ? Math.min(CANVAS_W, CANVAS_H) : CANVAS_W;
-  const h = square ? Math.min(CANVAS_W, CANVAS_H) : CANVAS_H;
+  const [canvasSize, setCanvasSize] = useState({ w: CANVAS_W, h: CANVAS_H });
+  const containerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const update = () => {
+      const rect = el.getBoundingClientRect();
+      const maxW = Math.min(rect.width || CANVAS_W, CANVAS_W);
+      const maxH = Math.min(rect.height || CANVAS_H, CANVAS_H);
+      if (square) {
+        const s = Math.min(maxW, maxH, CANVAS_W, CANVAS_H);
+        setCanvasSize({ w: s, h: s });
+      } else {
+        const ratio = CANVAS_W / CANVAS_H;
+        let w = maxW,
+          h = maxW / ratio;
+        if (h > maxH) {
+          h = maxH;
+          w = maxH * ratio;
+        }
+        setCanvasSize({ w: Math.max(200, w), h: Math.max(150, h) });
+      }
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [square, needsDrawing]);
+  const w = canvasSize.w;
+  const h = canvasSize.h;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -171,10 +196,10 @@ export function GameScreen({ user, ws, initialState, onGallery, onLeave }: GameS
                   canClear={strokes.length > 0}
                   drawingPresets={drawingPresets}
                 />
-                <div className="flex-1 min-w-0 flex flex-col items-center">
+                <div ref={containerRef} className="flex-1 min-w-0 flex flex-col items-center min-h-[200px] w-full">
                   {turn?.prompt && (
-                    <p className="text-white/90 text-lg mb-2 p-2 rounded-lg bg-white/5">
-                      {turn.prompt}
+                    <p className="text-white/90 text-lg mb-2 p-2 rounded-lg bg-white/5 w-full max-w-2xl">
+                      Нарисуй: {turn.prompt}
                     </p>
                   )}
                   {turn?.imageData && !isMyTurn && (
@@ -203,17 +228,27 @@ export function GameScreen({ user, ws, initialState, onGallery, onLeave }: GameS
               </>
             )}
             {needsText && (
-              <div className="flex-1 flex flex-col items-center justify-center p-4">
+              <div className="flex-1 flex flex-col items-center justify-center p-4 w-full max-w-2xl">
                 {turn?.prompt && (
-                  <p className="text-white/90 text-lg mb-4 p-3 rounded-lg bg-white/5">
+                  <p className="text-white/90 text-lg mb-2 p-3 rounded-lg bg-white/5 w-full">
                     Предыдущее: {turn.prompt}
                   </p>
+                )}
+                {turn?.imageData && (
+                  <>
+                    <p className="text-white/80 text-sm mb-2">Опиши этот рисунок словами:</p>
+                    <img
+                      src={turn.imageData}
+                      alt="Рисунок"
+                      className="max-w-full rounded-xl border border-white/10 mb-4 max-h-64 object-contain"
+                    />
+                  </>
                 )}
                 <textarea
                   value={textInput}
                   onChange={(e) => setTextInput(e.target.value)}
-                  placeholder="Напиши предложение..."
-                  className="w-full max-w-md min-h-[120px] px-4 py-3 rounded-btn bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-neon-purple resize-none"
+                  placeholder={turn?.imageData ? "Опиши рисунок..." : "Напиши предложение (первый ход)..."}
+                  className="w-full min-h-[120px] px-4 py-3 rounded-btn bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-neon-purple resize-none"
                   maxLength={200}
                 />
               </div>
